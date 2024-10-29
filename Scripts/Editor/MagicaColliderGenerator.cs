@@ -53,6 +53,8 @@ public class MagicaColliderGenerator : EditorWindow
         Transform hip = animator.GetBoneTransform(HumanBodyBones.Hips);
         Transform spine = animator.GetBoneTransform(HumanBodyBones.Spine);
         Transform neck = animator.GetBoneTransform(HumanBodyBones.Neck);
+        Transform leftShoulder = animator.GetBoneTransform(HumanBodyBones.LeftShoulder);
+        Transform rightShoulder = animator.GetBoneTransform(HumanBodyBones.RightShoulder);
 
 
 
@@ -72,6 +74,8 @@ public class MagicaColliderGenerator : EditorWindow
         bonesToExclude.Add(hip);
         bonesToExclude.Add(spine);
         bonesToExclude.Add(neck);
+        bonesToExclude.Add(leftShoulder);
+        bonesToExclude.Add(rightShoulder);
 
         // Iterate through all HumanBodyBones
         foreach (HumanBodyBones boneEnum in System.Enum.GetValues(typeof(HumanBodyBones)))
