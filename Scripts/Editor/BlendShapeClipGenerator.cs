@@ -134,6 +134,13 @@ public class BlendShapeClipGenerator : EditorWindow
                 includeEyeJiggleR = EditorGUILayout.Toggle("Include eyeJiggleR", includeEyeJiggleR);
 
                 GUILayout.Space(10);
+
+                if (GUILayout.Button("Set Facial BlendShapeClips"))
+                {
+                    CreateBlendShapeClips();
+                }
+
+                GUILayout.Space(10);
                 if (GUILayout.Button("Delete All BlendShapeClips"))
                 {
                     if (EditorUtility.DisplayDialog(
@@ -146,10 +153,7 @@ public class BlendShapeClipGenerator : EditorWindow
                     }
                 }
 
-                if (GUILayout.Button("Set Facial BlendShapeClips"))
-                {
-                    CreateBlendShapeClips();
-                }
+
             }
         }
     }
@@ -308,7 +312,7 @@ public class BlendShapeClipGenerator : EditorWindow
         clipName = (clipName == "eyeBaseJiggleR") ? "eyeBaseSwingR" : clipName;
         clipName = (clipName == "eyeJiggleL") ? "eyeCenterSwingL" : clipName;
         clipName = (clipName == "eyeJiggleR") ? "eyeCenterSwingR" : clipName;
-        
+
         var blendShapeBindingList = new System.Collections.Generic.List<BlendShapeBinding>();
 
         foreach (var renderer in skinnedMeshRenderers)
