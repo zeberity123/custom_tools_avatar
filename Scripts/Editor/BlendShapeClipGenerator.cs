@@ -308,10 +308,10 @@ public class BlendShapeClipGenerator : EditorWindow
 
     private void SetBlendShapeClipValues(BlendShapeClip clip, string clipName)
     {
-        clipName = (clipName == "eyeBaseJiggleL") ? "eyeBaseSwingL" : clipName;
-        clipName = (clipName == "eyeBaseJiggleR") ? "eyeBaseSwingR" : clipName;
-        clipName = (clipName == "eyeJiggleL") ? "eyeCenterSwingL" : clipName;
-        clipName = (clipName == "eyeJiggleR") ? "eyeCenterSwingR" : clipName;
+        // clipName = (clipName == "eyeBaseJiggleL") ? "eyeBaseSwingL" : clipName;
+        // clipName = (clipName == "eyeBaseJiggleR") ? "eyeBaseSwingR" : clipName;
+        // clipName = (clipName == "eyeJiggleL") ? "eyeCenterSwingL" : clipName;
+        // clipName = (clipName == "eyeJiggleR") ? "eyeCenterSwingR" : clipName;
 
         var blendShapeBindingList = new System.Collections.Generic.List<BlendShapeBinding>();
 
