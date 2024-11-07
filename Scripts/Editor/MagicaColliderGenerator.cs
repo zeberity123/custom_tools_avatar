@@ -92,11 +92,13 @@ public class MagicaColliderGenerator : EditorWindow
 
             if (GUILayout.Button("Select All Colliders"))
             {
+                ScanForColliders();
                 SelectAllColliders();
             }
 
             if (GUILayout.Button("Deselect All Colliders"))
             {
+                ScanForColliders();
                 DeselectAllColliders();
             }
 
@@ -109,13 +111,26 @@ public class MagicaColliderGenerator : EditorWindow
             GUILayout.Space(10);
 
             // New Collider Section
-            GUILayout.Label("Create New Collider:", EditorStyles.boldLabel);
+            GUILayout.Label("Create a New Collider:", EditorStyles.boldLabel);
             newColliderObject = (GameObject)EditorGUILayout.ObjectField("Target Object", newColliderObject, typeof(GameObject), true);
-            if (GUILayout.Button("New Collider"))
+            if (GUILayout.Button("Create Collider"))
             {
                 CreateNewCollider();
                 ScanForColliders();
             }
+
+            GUILayout.Space(10);
+            GUILayout.Label("Edit Collider Group:", EditorStyles.boldLabel);
+
+            selectedGroupIndex = EditorGUILayout.Popup("Select Group", selectedGroupIndex, colliderGroupNames);
+
+            if (GUILayout.Button("Apply"))
+            {
+                string selectedGroupName = colliderGroupNames[selectedGroupIndex];
+                ApplyCurrentSelectionToGroup(selectedGroupName);
+            }
+
+            GUILayout.Space(10);
 
             // Collider Groups Checkboxes
             foreach (var groupName in colliderGroupNames)
@@ -126,17 +141,6 @@ public class MagicaColliderGenerator : EditorWindow
                 {
                     ApplyColliderGroupSelection(groupName, colliderGroupSelections[groupName]);
                 }
-            }
-
-            GUILayout.Space(10);
-            GUILayout.Label("Apply to Collider Group:", EditorStyles.boldLabel);
-
-            selectedGroupIndex = EditorGUILayout.Popup("Select Group", selectedGroupIndex, colliderGroupNames);
-
-            if (GUILayout.Button("Apply"))
-            {
-                string selectedGroupName = colliderGroupNames[selectedGroupIndex];
-                ApplyCurrentSelectionToGroup(selectedGroupName);
             }
 
             GUILayout.Space(10);
