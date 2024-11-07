@@ -18,21 +18,44 @@ public class MagicaColliderGenerator : EditorWindow
         HumanBodyBones.Neck,
         HumanBodyBones.Chest,
         HumanBodyBones.Spine,
-        HumanBodyBones.Hips,
         HumanBodyBones.LeftUpperArm,  // Left arm
         HumanBodyBones.LeftLowerArm,  // Left elbow
         HumanBodyBones.RightUpperArm, // Right arm
         HumanBodyBones.RightLowerArm, // Right elbow
+        HumanBodyBones.Hips,
         HumanBodyBones.LeftUpperLeg,  // Left leg
         HumanBodyBones.LeftLowerLeg,  // Left knee
         HumanBodyBones.RightUpperLeg, // Right leg
         HumanBodyBones.RightLowerLeg, // Right knee
     };
 
+    // Collider groups and their default colliders
+    private Dictionary<string, List<HumanBodyBones>> colliderGroupDefaults = new Dictionary<string, List<HumanBodyBones>>()
+    {
+        { "Colliders_Hair", new List<HumanBodyBones> { HumanBodyBones.Head, HumanBodyBones.Neck, HumanBodyBones.Chest, HumanBodyBones.Spine, HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftLowerArm, HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm } },
+        { "Colliders_Skirt", new List<HumanBodyBones> { HumanBodyBones.Hips, HumanBodyBones.LeftUpperLeg, HumanBodyBones.LeftLowerLeg, HumanBodyBones.RightUpperLeg, HumanBodyBones.RightLowerLeg } }
+    };
+
+    // Collider group selection states
+    private Dictionary<string, bool> colliderGroupSelections = new Dictionary<string, bool>()
+    {
+        { "Colliders_Hair", false },
+        { "Colliders_Skirt", false }
+    };
+
+    private int selectedGroupIndex = 0; // For Apply to Collider Group
+    private string[] colliderGroupNames;
+
     [MenuItem("Tools/MagicaColliderGenerator")]
     public static void ShowWindow()
     {
         GetWindow<MagicaColliderGenerator>("MagicaColliderGenerator");
+    }
+
+    private void OnEnable()
+    {
+        // Initialize collider group names
+        colliderGroupNames = new string[] { "Colliders_Hair", "Colliders_Skirt" };
     }
 
     private void OnGUI()
@@ -57,9 +80,13 @@ public class MagicaColliderGenerator : EditorWindow
             }
 
             if (GUILayout.Button("Select All Colliders"))
-            {   
-                ScanForColliders();
+            {
                 SelectAllColliders();
+            }
+
+            if (GUILayout.Button("Deselect All Colliders"))
+            {
+                DeselectAllColliders();
             }
 
             if (GUILayout.Button("Delete All Colliders"))
@@ -67,36 +94,70 @@ public class MagicaColliderGenerator : EditorWindow
                 DeleteAllColliders();
                 ScanForColliders();
             }
-            
 
             GUILayout.Space(10);
             GUILayout.Label("Existing Colliders:", EditorStyles.boldLabel);
 
             if (collidersInfoList != null && collidersInfoList.Count > 0)
             {
+                // Begin a scroll view in case there are many colliders
+                scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(330));
+
                 foreach (var colliderInfo in collidersInfoList)
                 {
                     if (colliderInfo.collider != null)
                     {
-                        if (GUILayout.Button(colliderInfo.collider.name))
+                        bool prevSelected = colliderInfo.isSelected;
+                        colliderInfo.isSelected = EditorGUILayout.ToggleLeft(colliderInfo.collider.name, colliderInfo.isSelected);
+
+                        if (prevSelected != colliderInfo.isSelected)
                         {
-                            // Select the collider in the editor
-                            Selection.activeGameObject = colliderInfo.collider.gameObject;
+                            UpdateSelection();
                         }
                     }
                 }
+
+                EditorGUILayout.EndScrollView();
             }
             else
             {
                 GUILayout.Label("No colliders found.");
             }
+
+            GUILayout.Space(10);
+            GUILayout.Label("Collider Groups:", EditorStyles.boldLabel);
+
+            // Collider Groups Checkboxes
+            foreach (var groupName in colliderGroupNames)
+            {
+                bool prevGroupSelected = colliderGroupSelections[groupName];
+                colliderGroupSelections[groupName] = EditorGUILayout.ToggleLeft(groupName, colliderGroupSelections[groupName]);
+                if (prevGroupSelected != colliderGroupSelections[groupName])
+                {
+                    ApplyColliderGroupSelection(groupName, colliderGroupSelections[groupName]);
+                }
+            }
+
+            GUILayout.Space(10);
+            GUILayout.Label("Apply to Collider Group:", EditorStyles.boldLabel);
+
+            selectedGroupIndex = EditorGUILayout.Popup("Select Group", selectedGroupIndex, colliderGroupNames);
+
+            if (GUILayout.Button("Apply"))
+            {
+                string selectedGroupName = colliderGroupNames[selectedGroupIndex];
+                ApplyCurrentSelectionToGroup(selectedGroupName);
+            }
         }
     }
+
+    private Vector2 scrollPosition = Vector2.zero; // For scrolling the collider list
 
     private class ColliderInfo
     {
         public MagicaCapsuleCollider collider;
         public HumanBodyBones? boneEnum; // Nullable
+        public bool isSelected = false; // Selection state in the UI
     }
 
     private void ScanForColliders()
@@ -145,7 +206,8 @@ public class MagicaColliderGenerator : EditorWindow
                     collidersInfoList.Add(new ColliderInfo
                     {
                         collider = collider,
-                        boneEnum = boneEnum
+                        boneEnum = boneEnum,
+                        isSelected = false
                     });
                 }
 
@@ -162,6 +224,67 @@ public class MagicaColliderGenerator : EditorWindow
                 });
             }
         }
+    }
+
+    private void UpdateSelection()
+    {
+        List<GameObject> selectedObjects = new List<GameObject>();
+        foreach (var colliderInfo in collidersInfoList)
+        {
+            if (colliderInfo.isSelected)
+            {
+                selectedObjects.Add(colliderInfo.collider.gameObject);
+            }
+        }
+        Selection.objects = selectedObjects.ToArray();
+    }
+
+    private void ApplyColliderGroupSelection(string groupName, bool isSelected)
+    {
+        if (colliderGroupDefaults.ContainsKey(groupName))
+        {
+            var defaultBones = colliderGroupDefaults[groupName];
+            foreach (var colliderInfo in collidersInfoList)
+            {
+                if (colliderInfo.boneEnum.HasValue && defaultBones.Contains(colliderInfo.boneEnum.Value))
+                {
+                    colliderInfo.isSelected = isSelected;
+                }
+            }
+            UpdateSelection();
+        }
+    }
+
+    private void ApplyCurrentSelectionToGroup(string groupName)
+    {
+        List<HumanBodyBones> selectedBones = new List<HumanBodyBones>();
+        foreach (var colliderInfo in collidersInfoList)
+        {
+            if (colliderInfo.isSelected && colliderInfo.boneEnum.HasValue)
+            {
+                selectedBones.Add(colliderInfo.boneEnum.Value);
+            }
+        }
+        colliderGroupDefaults[groupName] = selectedBones;
+        Debug.Log($"Updated defaults for {groupName}.");
+    }
+
+    private void SelectAllColliders()
+    {
+        foreach (var colliderInfo in collidersInfoList)
+        {
+            colliderInfo.isSelected = true;
+        }
+        UpdateSelection();
+    }
+
+    private void DeselectAllColliders()
+    {
+        foreach (var colliderInfo in collidersInfoList)
+        {
+            colliderInfo.isSelected = false;
+        }
+        UpdateSelection();
     }
 
     private void GenerateColliders()
@@ -185,7 +308,6 @@ public class MagicaColliderGenerator : EditorWindow
         // Bones to exclude
         Transform leftHand = animator.GetBoneTransform(HumanBodyBones.LeftHand);
         Transform rightHand = animator.GetBoneTransform(HumanBodyBones.RightHand);
-        // Transform spine = animator.GetBoneTransform(HumanBodyBones.Spine);
         Transform leftShoulder = animator.GetBoneTransform(HumanBodyBones.LeftShoulder);
         Transform rightShoulder = animator.GetBoneTransform(HumanBodyBones.RightShoulder);
 
@@ -202,12 +324,8 @@ public class MagicaColliderGenerator : EditorWindow
                 CollectChildBones(child, bonesToExclude);
             }
 
-        // bonesToExclude.Add(spine);
         bonesToExclude.Add(leftShoulder);
         bonesToExclude.Add(rightShoulder);
-
-        // List to store generated collider objects
-        List<GameObject> colliderObjects = new List<GameObject>();
 
         // Iterate through all HumanBodyBones
         foreach (HumanBodyBones boneEnum in System.Enum.GetValues(typeof(HumanBodyBones)))
@@ -247,13 +365,7 @@ public class MagicaColliderGenerator : EditorWindow
 
             // Configure the collider
             ConfigureCapsuleCollider(colliderObj, bone, childBone, capsuleCollider, boneLength, boneEnum);
-
-            // Add collider object to the list
-            colliderObjects.Add(colliderObj);
         }
-
-        // Select all generated collider objects to make them visible
-        Selection.objects = colliderObjects.ToArray();
 
         Debug.Log("Colliders generated successfully.");
     }
@@ -445,8 +557,6 @@ public class MagicaColliderGenerator : EditorWindow
             capsuleCollider.alignedOnCenter = false; // default
             capsuleCollider.reverseDirection = false; // default
         }
-
-        // Configure the collider size
         capsuleCollider.SetSize(startRadius, endRadius, length);
     }
 
@@ -503,40 +613,6 @@ public class MagicaColliderGenerator : EditorWindow
         {
             CollectChildBones(child, bonesToExclude);
         }
-    }
-
-    private void SelectAllColliders()
-    {
-        if (avatar != null)
-        {
-            Animator animator = avatar.GetComponent<Animator>();
-            if (animator == null)
-            {
-                Debug.LogError("Animator component not found on the avatar.");
-                return;
-            }
-
-            // Find all MagicaCapsuleCollider components under the avatar
-            MagicaCapsuleCollider[] colliders = avatar.GetComponentsInChildren<MagicaCapsuleCollider>();
-
-            List<GameObject> colliderObjects = new List<GameObject>();
-
-            if (colliders != null && colliders.Length > 0)
-            {
-                foreach (var collider in colliders)
-                {
-                    colliderObjects.Add(collider.gameObject);
-                }
-            }
-            Selection.objects = colliderObjects.ToArray();
-        }
-
-        // // List to store generated collider objects
-        // List<GameObject> colliderObjects = new List<GameObject>();
-        // colliderObjects.Add(colliderObj);
-        // Selection.activeGameObject = colliderInfo.collider.gameObject;
-        // GameObject colliderObj = new GameObject("Collider_" + bone.name);
-        // colliderObjects.Add(colliderObj);
     }
 
     // Method to delete all colliders
