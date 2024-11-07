@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Animations; // Required for HumanBodyBones
+using UnityEditorInternal; // For ReorderableList
 using MagicaCloth2;
 using System.Collections.Generic;
 
@@ -10,8 +11,6 @@ public class MagicaColliderGenerator : EditorWindow
     private GameObject previousAvatar = null;
 
     private List<ColliderInfo> collidersInfoList = new List<ColliderInfo>();
-
-    // Order in which to display colliders
     private List<HumanBodyBones> boneDisplayOrder = new List<HumanBodyBones>
     {
         HumanBodyBones.Head,
@@ -28,6 +27,17 @@ public class MagicaColliderGenerator : EditorWindow
         HumanBodyBones.RightUpperLeg, // Right leg
         HumanBodyBones.RightLowerLeg, // Right knee
     };
+    // Order in which to display colliders (saved and loaded from EditorPrefs)
+    private List<string> colliderOrder = new List<string>();
+
+    // ReorderableList for colliders
+    private ReorderableList collidersReorderableList;
+
+    // Scroll position for the collider list
+    private Vector2 scrollPosition = Vector2.zero;
+
+    // For New Collider functionality
+    private GameObject newColliderObject;
 
     // Collider groups and their default colliders
     private Dictionary<string, List<HumanBodyBones>> colliderGroupDefaults = new Dictionary<string, List<HumanBodyBones>>()
@@ -54,6 +64,7 @@ public class MagicaColliderGenerator : EditorWindow
 
     private void OnEnable()
     {
+        LoadColliderOrder();
         // Initialize collider group names
         colliderGroupNames = new string[] { "Colliders_Hair", "Colliders_Skirt" };
     }
@@ -96,36 +107,15 @@ public class MagicaColliderGenerator : EditorWindow
             }
 
             GUILayout.Space(10);
-            GUILayout.Label("Existing Colliders:", EditorStyles.boldLabel);
 
-            if (collidersInfoList != null && collidersInfoList.Count > 0)
+            // New Collider Section
+            GUILayout.Label("Create New Collider:", EditorStyles.boldLabel);
+            newColliderObject = (GameObject)EditorGUILayout.ObjectField("Target Object", newColliderObject, typeof(GameObject), true);
+            if (GUILayout.Button("New Collider"))
             {
-                // Begin a scroll view in case there are many colliders
-                scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(330));
-
-                foreach (var colliderInfo in collidersInfoList)
-                {
-                    if (colliderInfo.collider != null)
-                    {
-                        bool prevSelected = colliderInfo.isSelected;
-                        colliderInfo.isSelected = EditorGUILayout.ToggleLeft(colliderInfo.collider.name, colliderInfo.isSelected);
-
-                        if (prevSelected != colliderInfo.isSelected)
-                        {
-                            UpdateSelection();
-                        }
-                    }
-                }
-
-                EditorGUILayout.EndScrollView();
+                CreateNewCollider();
+                ScanForColliders();
             }
-            else
-            {
-                GUILayout.Label("No colliders found.");
-            }
-
-            GUILayout.Space(10);
-            GUILayout.Label("Collider Groups:", EditorStyles.boldLabel);
 
             // Collider Groups Checkboxes
             foreach (var groupName in colliderGroupNames)
@@ -148,10 +138,64 @@ public class MagicaColliderGenerator : EditorWindow
                 string selectedGroupName = colliderGroupNames[selectedGroupIndex];
                 ApplyCurrentSelectionToGroup(selectedGroupName);
             }
+
+            GUILayout.Space(10);
+            GUILayout.Label("Existing Colliders:", EditorStyles.boldLabel);
+
+            if (collidersInfoList != null && collidersInfoList.Count > 0)
+            {
+                // Draw the reorderable list
+                if (collidersReorderableList == null)
+                {
+                    InitializeReorderableList();
+                }
+
+                // Adjust the height of the list dynamically
+                float listHeight = position.height - 300;
+                if (listHeight < 100) listHeight = 100;
+
+                scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(listHeight));
+                collidersReorderableList.DoLayoutList();
+                EditorGUILayout.EndScrollView();
+            }
+            else
+            {
+                GUILayout.Label("No colliders found.");
+            }
+
+            GUILayout.Space(10);
+            GUILayout.Label("Collider Groups:", EditorStyles.boldLabel);
         }
     }
 
-    private Vector2 scrollPosition = Vector2.zero; // For scrolling the collider list
+    private void InitializeReorderableList()
+    {
+        collidersReorderableList = new ReorderableList(collidersInfoList, typeof(ColliderInfo), true, false, false, false);
+
+        collidersReorderableList.drawElementCallback = (Rect rect, int index, bool isActive, bool isFocused) =>
+        {
+            ColliderInfo colliderInfo = collidersInfoList[index];
+            if (colliderInfo.collider != null)
+            {
+                rect.y += 2;
+                bool prevSelected = colliderInfo.isSelected;
+                colliderInfo.isSelected = EditorGUI.ToggleLeft(new Rect(rect.x, rect.y, rect.width, EditorGUIUtility.singleLineHeight), colliderInfo.collider.name, colliderInfo.isSelected);
+
+                if (prevSelected != colliderInfo.isSelected)
+                {
+                    UpdateSelection();
+                }
+            }
+        };
+
+        collidersReorderableList.onReorderCallback = (ReorderableList list) =>
+        {
+            SaveColliderOrder();
+        };
+
+        collidersReorderableList.headerHeight = 0;
+        collidersReorderableList.footerHeight = 0;
+    }
 
     private class ColliderInfo
     {
@@ -222,6 +266,14 @@ public class MagicaColliderGenerator : EditorWindow
 
                     return indexA.CompareTo(indexB);
                 });
+
+                SaveColliderOrder();
+
+                // Restore the saved order
+                RestoreColliderOrder();
+
+                // Initialize the reorderable list
+                InitializeReorderableList();
             }
         }
     }
@@ -365,6 +417,7 @@ public class MagicaColliderGenerator : EditorWindow
 
             // Configure the collider
             ConfigureCapsuleCollider(colliderObj, bone, childBone, capsuleCollider, boneLength, boneEnum);
+
         }
 
         Debug.Log("Colliders generated successfully.");
@@ -399,7 +452,23 @@ public class MagicaColliderGenerator : EditorWindow
         float endRadius = startRadius;
         float length = boneLength;
 
-        if (boneEnum == HumanBodyBones.RightUpperArm)
+        // Adjust settings based on specific bones (Include your custom configurations here)
+        // Example for Head
+        if (boneEnum == HumanBodyBones.Head)
+        {
+            // Set specific properties for the head
+            length = 0.14f;
+            startRadius = 0.06f;
+            endRadius = 0.04f;
+
+            // Set collider object's local position and rotation
+            colliderObj.transform.localPosition = new Vector3(0, 0.06f, 0);
+            colliderObj.transform.localRotation = Quaternion.Euler(-25f, 0f, 90f);
+
+            capsuleCollider.radiusSeparation = true;
+            capsuleCollider.alignedOnCenter = false;
+        }
+        else if (boneEnum == HumanBodyBones.RightUpperArm)
         {
             length = 0.28f;
             startRadius = 0.035f;
@@ -557,7 +626,41 @@ public class MagicaColliderGenerator : EditorWindow
             capsuleCollider.alignedOnCenter = false; // default
             capsuleCollider.reverseDirection = false; // default
         }
+        // Configure the collider size
         capsuleCollider.SetSize(startRadius, endRadius, length);
+    }
+
+    private void CreateNewCollider()
+    {
+        if (newColliderObject == null)
+        {
+            Debug.LogError("Please assign a target object for the new collider.");
+            return;
+        }
+
+        // Start undo operation
+        Undo.RegisterFullObjectHierarchyUndo(newColliderObject, "Create New MagicaCapsuleCollider");
+
+        // Create a new GameObject for the collider
+        GameObject colliderObj = new GameObject("Collider_" + newColliderObject.name);
+        colliderObj.transform.SetParent(newColliderObject.transform, false);
+        colliderObj.transform.localPosition = Vector3.zero;
+        colliderObj.transform.localRotation = Quaternion.identity;
+
+        // Add MagicaCapsuleCollider component
+        MagicaCapsuleCollider capsuleCollider = colliderObj.AddComponent<MagicaCapsuleCollider>();
+
+        // Set properties
+        capsuleCollider.direction = MagicaCapsuleCollider.Direction.X;
+        capsuleCollider.center = Vector3.zero;
+        capsuleCollider.SetSize(0.05f, 0.05f, 0.2f);
+        capsuleCollider.radiusSeparation = false;
+        capsuleCollider.alignedOnCenter = false;
+
+        // Select the new collider
+        Selection.activeGameObject = colliderObj;
+
+        Debug.Log($"Created new collider under {newColliderObject.name}.");
     }
 
     private MagicaCapsuleCollider.Direction GetCapsuleDirection(Transform bone, Transform childBone)
@@ -641,7 +744,6 @@ public class MagicaColliderGenerator : EditorWindow
         // Delete each collider
         foreach (MagicaCapsuleCollider collider in colliders)
         {
-            // Destroy the collider's GameObject (assuming it's the one created by this tool)
             if (collider != null)
             {
                 // Destroy immediate for editor scripts
@@ -650,5 +752,59 @@ public class MagicaColliderGenerator : EditorWindow
         }
 
         Debug.Log($"{colliderCount} colliders deleted successfully.");
+    }
+
+    private void SaveColliderOrder()
+    {
+        colliderOrder.Clear();
+        foreach (var colliderInfo in collidersInfoList)
+        {
+            colliderOrder.Add(colliderInfo.collider.name);
+        }
+
+        string serializedOrder = string.Join(";", colliderOrder);
+        EditorPrefs.SetString("MagicaColliderOrder", serializedOrder);
+    }
+
+    private void LoadColliderOrder()
+    {
+        colliderOrder.Clear();
+        string serializedOrder = EditorPrefs.GetString("MagicaColliderOrder", "");
+        if (!string.IsNullOrEmpty(serializedOrder))
+        {
+            colliderOrder.AddRange(serializedOrder.Split(';'));
+        }
+    }
+
+    private void RestoreColliderOrder()
+    {
+        if (colliderOrder.Count == 0)
+            return;
+
+        // Create a mapping from collider name to ColliderInfo
+        Dictionary<string, ColliderInfo> colliderInfoMap = new Dictionary<string, ColliderInfo>();
+        foreach (var colliderInfo in collidersInfoList)
+        {
+            colliderInfoMap[colliderInfo.collider.name] = colliderInfo;
+        }
+
+        // Reorder collidersInfoList based on saved order
+        List<ColliderInfo> reorderedList = new List<ColliderInfo>();
+        foreach (var colliderName in colliderOrder)
+        {
+            if (colliderInfoMap.ContainsKey(colliderName))
+            {
+                reorderedList.Add(colliderInfoMap[colliderName]);
+                colliderInfoMap.Remove(colliderName);
+            }
+        }
+
+        // Add any colliders that were not in the saved order
+        foreach (var colliderInfo in colliderInfoMap.Values)
+        {
+            reorderedList.Add(colliderInfo);
+        }
+
+        collidersInfoList = reorderedList;
     }
 }

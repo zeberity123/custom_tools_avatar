@@ -11,7 +11,22 @@ public class MagicaColliderGenerator : EditorWindow
     private GameObject previousAvatar = null;
 
     private List<ColliderInfo> collidersInfoList = new List<ColliderInfo>();
-
+    private List<HumanBodyBones> boneDisplayOrder = new List<HumanBodyBones>
+    {
+        HumanBodyBones.Head,
+        HumanBodyBones.Neck,
+        HumanBodyBones.Chest,
+        HumanBodyBones.Spine,
+        HumanBodyBones.LeftUpperArm,  // Left arm
+        HumanBodyBones.LeftLowerArm,  // Left elbow
+        HumanBodyBones.RightUpperArm, // Right arm
+        HumanBodyBones.RightLowerArm, // Right elbow
+        HumanBodyBones.Hips,
+        HumanBodyBones.LeftUpperLeg,  // Left leg
+        HumanBodyBones.LeftLowerLeg,  // Left knee
+        HumanBodyBones.RightUpperLeg, // Right leg
+        HumanBodyBones.RightLowerLeg, // Right knee
+    };
     // Order in which to display colliders (saved and loaded from EditorPrefs)
     private List<string> colliderOrder = new List<string>();
 
@@ -238,7 +253,22 @@ public class MagicaColliderGenerator : EditorWindow
                         boneEnum = boneEnum,
                         isSelected = false
                     });
+
+
                 }
+                // Now sort collidersInfoList according to the specified order
+                collidersInfoList.Sort((a, b) =>
+                {
+                    int indexA = a.boneEnum.HasValue ? boneDisplayOrder.IndexOf(a.boneEnum.Value) : boneDisplayOrder.Count;
+                    int indexB = b.boneEnum.HasValue ? boneDisplayOrder.IndexOf(b.boneEnum.Value) : boneDisplayOrder.Count;
+
+                    if (indexA == -1) indexA = boneDisplayOrder.Count;
+                    if (indexB == -1) indexB = boneDisplayOrder.Count;
+
+                    return indexA.CompareTo(indexB);
+                });
+
+                SaveColliderOrder();
 
                 // Restore the saved order
                 RestoreColliderOrder();
