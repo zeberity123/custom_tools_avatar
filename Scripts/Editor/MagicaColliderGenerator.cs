@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Animations; // Required for HumanBodyBones
-using UnityEditorInternal; // For ReorderableList
+using UnityEditorInternal;    // For ReorderableList
 using MagicaCloth2;
 using System.Collections.Generic;
 
@@ -27,6 +27,7 @@ public class MagicaColliderGenerator : EditorWindow
         HumanBodyBones.RightUpperLeg, // Right leg
         HumanBodyBones.RightLowerLeg, // Right knee
     };
+
     // Order in which to display colliders (saved and loaded from EditorPrefs)
     private List<string> colliderOrder = new List<string>();
 
@@ -38,6 +39,9 @@ public class MagicaColliderGenerator : EditorWindow
 
     // For New Collider functionality
     private GameObject newColliderObject;
+
+    // For Duplicate Colliders functionality
+    private GameObject targetAvatar;
 
     // Collider groups and their default colliders
     private Dictionary<string, List<HumanBodyBones>> colliderGroupDefaults = new Dictionary<string, List<HumanBodyBones>>()
@@ -108,6 +112,17 @@ public class MagicaColliderGenerator : EditorWindow
             }
 
             GUILayout.Space(10);
+
+            // Duplicate Colliders Section
+            GUILayout.Label("Duplicate Colliders:", EditorStyles.boldLabel);
+            targetAvatar = (GameObject)EditorGUILayout.ObjectField("Target Avatar", targetAvatar, typeof(GameObject), true);
+            if (GUILayout.Button("Duplicate"))
+            {
+                DuplicateColliders();
+                // Optionally, you might want to scan for colliders on the target avatar as well
+            }
+
+            GUILayout.Space(10);
             GUILayout.Label("Edit Collider Group:", EditorStyles.boldLabel);
 
             selectedGroupIndex = EditorGUILayout.Popup("Select Group", selectedGroupIndex, colliderGroupNames);
@@ -155,7 +170,7 @@ public class MagicaColliderGenerator : EditorWindow
                 }
 
                 // Adjust the height of the list dynamically
-                float listHeight = position.height - 300;
+                float listHeight = position.height - 500;
                 if (listHeight < 100) listHeight = 100;
 
                 scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(listHeight));
@@ -205,7 +220,7 @@ public class MagicaColliderGenerator : EditorWindow
     {
         public MagicaCapsuleCollider collider;
         public HumanBodyBones? boneEnum; // Nullable
-        public bool isSelected = false; // Selection state in the UI
+        public bool isSelected = false;   // Selection state in the UI
     }
 
     private void ScanForColliders()
@@ -456,8 +471,6 @@ public class MagicaColliderGenerator : EditorWindow
         float endRadius = startRadius;
         float length = boneLength;
 
-        // Adjust settings based on specific bones (Include your custom configurations here)
-        // Example for Head
         if (boneEnum == HumanBodyBones.Head)
         {
             // Set specific properties for the head
@@ -630,6 +643,7 @@ public class MagicaColliderGenerator : EditorWindow
             capsuleCollider.alignedOnCenter = false; // default
             capsuleCollider.reverseDirection = false; // default
         }
+
         // Configure the collider size
         capsuleCollider.SetSize(startRadius, endRadius, length);
     }
@@ -665,6 +679,102 @@ public class MagicaColliderGenerator : EditorWindow
         Selection.activeGameObject = colliderObj;
 
         Debug.Log($"Created new collider under {newColliderObject.name}.");
+    }
+
+    private void DuplicateColliders()
+    {
+        if (avatar == null || targetAvatar == null)
+        {
+            Debug.LogError("Please assign both Source Avatar and Target Avatar.");
+            return;
+        }
+
+        // Start undo operation
+        Undo.RegisterFullObjectHierarchyUndo(targetAvatar, "Duplicate MagicaCloth2 Colliders");
+
+        // Get all colliders in the source avatar
+        MagicaCapsuleCollider[] sourceColliders = avatar.GetComponentsInChildren<MagicaCapsuleCollider>(true);
+
+        int duplicatedCount = 0;
+
+        foreach (MagicaCapsuleCollider sourceCollider in sourceColliders)
+        {
+            // Get the path to the collider GameObject relative to the source avatar
+            string colliderPath = GetTransformPath(sourceCollider.transform, avatar.transform);
+
+            // Get the parent path (path to the parent of the collider GameObject)
+            string parentPath = GetTransformPath(sourceCollider.transform.parent, avatar.transform);
+
+            // Find the corresponding parent transform in the target avatar
+            Transform targetParentTransform = FindTransformByPath(targetAvatar.transform, parentPath);
+
+            if (targetParentTransform == null)
+            {
+                Debug.LogWarning($"Could not find corresponding parent transform for path '{parentPath}' in target avatar.");
+                continue;
+            }
+
+            // Create a new GameObject with the same name under the target parent transform
+            GameObject duplicatedColliderObj = new GameObject(sourceCollider.gameObject.name);
+            duplicatedColliderObj.transform.SetParent(targetParentTransform, false);
+            duplicatedColliderObj.transform.localPosition = sourceCollider.transform.localPosition;
+            duplicatedColliderObj.transform.localRotation = sourceCollider.transform.localRotation;
+            duplicatedColliderObj.transform.localScale = sourceCollider.transform.localScale;
+
+            // Add MagicaCapsuleCollider component
+            MagicaCapsuleCollider duplicatedCollider = duplicatedColliderObj.AddComponent<MagicaCapsuleCollider>();
+
+            // Copy the collider properties
+            CopyColliderProperties(sourceCollider, duplicatedCollider);
+
+            duplicatedCount++;
+        }
+
+        Debug.Log($"Duplicated {duplicatedCount} colliders to the target avatar.");
+    }
+
+    private void CopyColliderProperties(MagicaCapsuleCollider source, MagicaCapsuleCollider target)
+    {
+        if (source == null || target == null)
+            return;
+
+        // Copy all serializable fields
+        SerializedObject sourceSerializedObject = new SerializedObject(source);
+        SerializedObject targetSerializedObject = new SerializedObject(target);
+
+        SerializedProperty prop = sourceSerializedObject.GetIterator();
+        while (prop.NextVisible(true))
+        {
+            if (prop.name == "m_Script") // Skip the script reference
+                continue;
+
+            targetSerializedObject.CopyFromSerializedProperty(prop);
+        }
+        targetSerializedObject.ApplyModifiedProperties();
+    }
+
+    private string GetTransformPath(Transform currentTransform, Transform rootTransform)
+    {
+        if (currentTransform == rootTransform)
+            return "";
+
+        string path = currentTransform.name;
+        Transform parent = currentTransform.parent;
+
+        while (parent != null && parent != rootTransform)
+        {
+            path = parent.name + "/" + path;
+            parent = parent.parent;
+        }
+        return path;
+    }
+
+    private Transform FindTransformByPath(Transform root, string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return root;
+
+        return root.Find(path);
     }
 
     private MagicaCapsuleCollider.Direction GetCapsuleDirection(Transform bone, Transform childBone)
