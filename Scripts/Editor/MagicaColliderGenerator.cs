@@ -90,18 +90,6 @@ public class MagicaColliderGenerator : EditorWindow
                 ScanForColliders();
             }
 
-            if (GUILayout.Button("Select All Colliders"))
-            {
-                ScanForColliders();
-                SelectAllColliders();
-            }
-
-            if (GUILayout.Button("Deselect All Colliders"))
-            {
-                ScanForColliders();
-                DeselectAllColliders();
-            }
-
             if (GUILayout.Button("Delete All Colliders"))
             {
                 DeleteAllColliders();
@@ -145,6 +133,18 @@ public class MagicaColliderGenerator : EditorWindow
 
             GUILayout.Space(10);
             GUILayout.Label("Existing Colliders:", EditorStyles.boldLabel);
+
+            if (GUILayout.Button("Select All Colliders"))
+            {
+                ScanForColliders();
+                SelectAllColliders();
+            }
+
+            if (GUILayout.Button("Deselect All Colliders"))
+            {
+                ScanForColliders();
+                DeselectAllColliders();
+            }
 
             if (collidersInfoList != null && collidersInfoList.Count > 0)
             {
