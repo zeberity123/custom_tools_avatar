@@ -100,7 +100,7 @@ public class MagicaColliderGenerator : EditorWindow
                 ScanForColliders();
             }
 
-            GUILayout.Space(10);
+            GUILayout.Space(5);
 
             // New Collider Section
             GUILayout.Label("Create a New Collider:", EditorStyles.boldLabel);
@@ -111,7 +111,7 @@ public class MagicaColliderGenerator : EditorWindow
                 ScanForColliders();
             }
 
-            GUILayout.Space(10);
+            GUILayout.Space(5);
 
             // Duplicate Colliders Section
             GUILayout.Label("Duplicate Colliders:", EditorStyles.boldLabel);
@@ -122,7 +122,7 @@ public class MagicaColliderGenerator : EditorWindow
                 // Optionally, you might want to scan for colliders on the target avatar as well
             }
 
-            GUILayout.Space(10);
+            GUILayout.Space(5);
             GUILayout.Label("Edit Collider Group:", EditorStyles.boldLabel);
 
             selectedGroupIndex = EditorGUILayout.Popup("Select Group", selectedGroupIndex, colliderGroupNames);
@@ -133,7 +133,8 @@ public class MagicaColliderGenerator : EditorWindow
                 ApplyCurrentSelectionToGroup(selectedGroupName);
             }
 
-            GUILayout.Space(10);
+            GUILayout.Space(5);
+            GUILayout.Label("Existing Colliders:", EditorStyles.boldLabel);
 
             // Collider Groups Checkboxes
             foreach (var groupName in colliderGroupNames)
@@ -145,9 +146,6 @@ public class MagicaColliderGenerator : EditorWindow
                     ApplyColliderGroupSelection(groupName, colliderGroupSelections[groupName]);
                 }
             }
-
-            GUILayout.Space(10);
-            GUILayout.Label("Existing Colliders:", EditorStyles.boldLabel);
 
             if (GUILayout.Button("Select All Colliders"))
             {
@@ -170,7 +168,7 @@ public class MagicaColliderGenerator : EditorWindow
                 }
 
                 // Adjust the height of the list dynamically
-                float listHeight = position.height - 500;
+                float listHeight = position.height - 390;
                 if (listHeight < 100) listHeight = 100;
 
                 scrollPosition = EditorGUILayout.BeginScrollView(scrollPosition, GUILayout.Height(listHeight));
@@ -181,9 +179,6 @@ public class MagicaColliderGenerator : EditorWindow
             {
                 GUILayout.Label("No colliders found.");
             }
-
-            GUILayout.Space(10);
-            GUILayout.Label("Collider Groups:", EditorStyles.boldLabel);
         }
     }
 
