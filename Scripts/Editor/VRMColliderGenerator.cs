@@ -79,6 +79,11 @@ public class VRMColliderGenerator : EditorWindow
             }
         }
 
+        if (GUILayout.Button("Delete All Colliders"))
+        {
+            DeleteAllColliders();
+        }
+
         if (collidersGenerated)
         {
             GUILayout.Space(10);
@@ -229,6 +234,36 @@ public class VRMColliderGenerator : EditorWindow
         }
 
         return colliders;
+    }
+    
+    private void DeleteAllColliders()
+    {
+        if (vrmAvatar == null)
+        {
+            Debug.LogError("Avatar is not assigned.");
+            return;
+        }
+
+        Undo.RegisterFullObjectHierarchyUndo(vrmAvatar, "Delete VRM SpringBone Colliders");
+        VRMSpringBoneColliderGroup[] colliderGroups = vrmAvatar.GetComponentsInChildren<VRMSpringBoneColliderGroup>();
+
+        int colliderCount = colliderGroups.Length;
+
+        if (colliderCount == 0)
+        {
+            Debug.Log("No VRM Colliders found to delete");
+            return;
+        }
+
+        foreach (VRMSpringBoneColliderGroup collider in colliderGroups)
+        {
+            if (collider != null)
+            {
+                Undo.DestroyObjectImmediate(collider.gameObject);
+            }
+        }
+
+        Debug.Log($"{colliderCount} colliders deleted successfully.");
     }
 
     private void UpdateColliderSizes()
