@@ -1,7 +1,7 @@
 using UnityEditor;
 using UnityEngine;
-using UnityEngine.Animations; // Required for HumanBodyBones
-using UnityEditorInternal;    // For ReorderableList
+using UnityEngine.Animations;
+using UnityEditorInternal;
 using MagicaCloth2;
 using System.Collections.Generic;
 
